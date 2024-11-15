@@ -2,16 +2,33 @@
   <div class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
     <div class="sm:mx-auto sm:w-full sm:max-w-md">
       <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-        Complete your profile
+        {{ isProfileComplete ? 'Profile Summary' : 'Complete Your Profile' }}
       </h2>
       <p class="mt-2 text-center text-sm text-gray-600">
-        Tell us a bit about yourself to get started
+        {{ isProfileComplete
+          ? 'Your profile is already complete. Update any fields below if needed.'
+          : 'Tell us a bit about yourself to get started.' }}
       </p>
     </div>
 
     <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
       <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-        <form @submit.prevent="handleSubmit">
+        <!-- Profile Summary -->
+        <div v-if="isProfileComplete" class="space-y-4">
+          <div>
+            <h3 class="text-lg font-medium text-gray-800">Profile Details</h3>
+            <p><strong>Full Name:</strong> {{ authStore.profile?.full_name }}</p>
+            <p><strong>Location:</strong> {{ authStore.profile?.location }}</p>
+            <p><strong>Role:</strong> {{ authStore.profile?.user_type }}</p>
+            <p v-if="authStore.profile?.business_name"><strong>Business Name:</strong> {{ authStore.profile.business_name }}</p>
+            <p v-if="authStore.profile?.service_type"><strong>Service Type:</strong> {{ authStore.profile.service_type }}</p>
+          </div>
+          <hr class="my-4">
+          <p class="text-center text-gray-600">You can update any of the fields below.</p>
+        </div>
+
+        <!-- Profile Form -->
+        <form v-if="!isProfileComplete || step === 2" @submit.prevent="handleSubmit">
           <!-- Step 1: Basic Info -->
           <div v-if="step === 1" class="space-y-6">
             <div>
@@ -66,7 +83,6 @@
                 required
                 class="mt-1 block w-full pl-3 pr-10 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                 :class="{ 'border-red-500': errors.user_type }"
-                @change="resetConditionalFields"
               >
                 <option value="" disabled>Select your role</option>
                 <option value="planner">Event Planner</option>
@@ -128,25 +144,12 @@
               Next
             </button>
             <button
-              v-if="step === 2"
+              v-if="step === 2 || isProfileComplete"
               type="submit"
-              :disabled="authStore.loading"
-              class="ml-auto py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+              class="ml-auto py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
             >
-              <span v-if="authStore.loading">
-                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Completing Setup...
-              </span>
-              <span v-else>Complete Setup</span>
+              Save Changes
             </button>
-          </div>
-
-          <!-- Error Message -->
-          <div v-if="authStore.error" class="mt-4 rounded-md bg-red-50 p-4">
-            <p class="text-sm text-red-700">{{ authStore.error }}</p>
           </div>
         </form>
       </div>
@@ -155,23 +158,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import { useRouter } from 'vue-router'
-import { z } from 'zod'
+import { useAuthStore } from '@/stores/auth';
+import { ref, computed } from 'vue';
+import { z } from 'zod';
 
-const authStore = useAuthStore()
-const router = useRouter()
+const authStore = useAuthStore();
 
-const step = ref(1)
+// Form state
+const step = ref(1);
 const formData = ref({
-  full_name: '',
-  user_type: '',
-  country: '',
-  city_or_town: '',
-  business_name: '',
-  service_type: '',
-})
+  full_name: authStore.profile?.full_name || '',
+  user_type: authStore.profile?.user_type || '',
+  country: authStore.profile?.location?.split(', ')[1] || '',
+  city_or_town: authStore.profile?.location?.split(', ')[0] || '',
+  business_name: authStore.profile?.business_name || '',
+  service_type: authStore.profile?.service_type || '',
+});
 
 const errors = ref({
   full_name: '',
@@ -180,78 +182,103 @@ const errors = ref({
   city_or_town: '',
   business_name: '',
   service_type: '',
-})
+});
 
+// Check if profile is complete
+const isProfileComplete = computed(() => {
+  const profile = authStore.profile;
+  return (
+    profile?.full_name &&
+    profile?.user_type &&
+    profile?.location &&
+    (profile.user_type !== 'vendor' || (profile.business_name && profile.service_type))
+  );
+});
+
+// Validation schemas
 const baseSchema = z.object({
   full_name: z.string().min(2, 'Full name must be at least 2 characters'),
-  user_type: z.enum(['planner', 'vendor', 'venue_manager'], {
-    errorMap: () => ({ message: 'Please select a valid user type' }),
-  }),
-  country: z.string().min(2, 'Please enter a valid country'),
-  city_or_town: z.string().min(2, 'Please enter a valid city or town'),
-})
+  country: z.string().min(2, 'Country must be at least 2 characters'),
+  city_or_town: z.string().min(2, 'City/Town must be at least 2 characters'),
+  user_type: z.union([z.enum(['planner', 'vendor', 'venue_manager']), z.literal('')]),
+});
 
 const vendorSchema = baseSchema.extend({
   business_name: z.string().min(2, 'Business name must be at least 2 characters'),
   service_type: z.string().min(1, 'Please select a service type'),
-})
+});
+
+// Helper methods
+const clearErrors = () => {
+  Object.keys(errors.value).forEach(key => {
+    errors.value[key] = '';
+  });
+};
 
 const validateForm = () => {
-  clearErrors()
-  const schema = formData.value.user_type === 'vendor' ? vendorSchema : baseSchema
+  clearErrors();
+  const schema = step.value === 1
+    ? baseSchema.omit({ user_type: true })
+    : formData.value.user_type === 'vendor'
+    ? vendorSchema
+    : baseSchema;
+
   try {
-    schema.parse(formData.value)
-    return true
+    schema.parse(formData.value);
+    return true;
   } catch (error) {
     if (error instanceof z.ZodError) {
       error.errors.forEach(err => {
-        errors.value[err.path[0]] = err.message
-      })
+        errors.value[err.path[0]] = err.message;
+      });
     }
-    return false
+    return false;
   }
-}
-
-const clearErrors = () => {
-  Object.keys(errors.value).forEach(key => {
-    errors.value[key] = ''
-  })
-}
-
-const resetConditionalFields = () => {
-  if (formData.value.user_type !== 'vendor') {
-    formData.value.business_name = ''
-    formData.value.service_type = ''
-  }
-}
+};
 
 const nextStep = () => {
-  if (step.value === 1 && validateForm()) {
-    step.value++
+  if (validateForm()) {
+    step.value++;
   }
-}
+};
 
 const handleSubmit = async () => {
-  if (!validateForm()) return
+  if (validateForm()) {
+    try {
+      authStore.loading = true;
 
-  try {
-    await authStore.updateProfile({
-      full_name: formData.value.full_name,
-      user_type: formData.value.user_type,
-      country: formData.value.country,
-      city_or_town: formData.value.city_or_town,
-    })
+      const updates: Record<string, any> = {};
+      const newLocation = `${formData.value.city_or_town}, ${formData.value.country}`;
 
-    if (formData.value.user_type === 'vendor') {
-      await authStore.createVendorProfile({
-        business_name: formData.value.business_name,
-        service_type: formData.value.service_type,
-      })
+      if (formData.value.full_name !== authStore.profile?.full_name) {
+        updates.full_name = formData.value.full_name;
+      }
+      if (formData.value.user_type !== authStore.profile?.user_type) {
+        updates.user_type = formData.value.user_type;
+      }
+      if (newLocation !== authStore.profile?.location) {
+        updates.location = newLocation;
+      }
+      if (formData.value.business_name !== authStore.profile?.business_name) {
+        updates.business_name = formData.value.business_name;
+      }
+      if (formData.value.service_type !== authStore.profile?.service_type) {
+        updates.service_type = formData.value.service_type;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        alert('No changes detected.');
+        return;
+      }
+
+      await authStore.updateProfile(updates);
+      alert('Profile updated successfully!');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('An error occurred while updating your profile. Please try again.');
+    } finally {
+      authStore.loading = false;
     }
-
-    router.push('/dashboard')
-  } catch (error) {
-    authStore.error = error instanceof Error ? error.message : 'An error occurred'
   }
-}
+};
 </script>

@@ -120,26 +120,30 @@ export const useAuthStore = defineStore('auth', () => {
   
 
   async function updateProfile(updates: Partial<Profile>) {
-    loading.value = true
-    error.value = null
+    loading.value = true;
+    error.value = null;
     try {
-      if (!user.value) return
-
+      if (!user.value) return;
+  
       const { data, error: updateError } = await supabase
         .from('profiles')
         .update(updates)
         .eq('id', user.value.id)
         .select()
-        .single()
-      if (updateError) throw updateError
-
-      profile.value = data
+        .single();
+  
+      if (updateError) throw updateError;
+  
+      console.log('Profile updated successfully:', data); // Log the updated profile
+      profile.value = data; // Update the local store
     } catch (err) {
-      error.value = `Update profile error: ${(err as Error).message}`
+      console.error('Update profile error:', err); // Log errors
+      error.value = `Update profile error: ${(err as Error).message}`;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
   }
+  
 
   return {
     user,

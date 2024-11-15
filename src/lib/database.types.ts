@@ -10,6 +10,8 @@ export interface Profile {
   email?: string | null;
   location?: string | null;
   created_at: Date;
+  business_name?: string;
+  service_type?: string;
 }
 
 // Venues Table Structure
