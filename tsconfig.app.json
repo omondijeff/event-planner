@@ -1,0 +1,13 @@
+// tsconfig.app.json
+{
+  "compilerOptions": {
+    "composite": true,          
+    "module": "esnext",
+    "target": "es2020",
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
+}

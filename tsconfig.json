@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "es2020",
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["*"],
+      "@supabase/supabase-js": ["node_modules/@supabase/supabase-js/dist/index.js"]
+    },
+    "types": ["@supabase/supabase-js"]
+  },
+  "references": [
+    { "path": "./tsconfig.app.json" }
+  ]
+}

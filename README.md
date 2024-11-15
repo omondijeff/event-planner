@@ -1,0 +1,2 @@
+# event-planner
+ MVP
