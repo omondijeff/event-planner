@@ -125,6 +125,8 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       if (!user.value) return;
   
+      // Update the profile in the database
+      console.log('Updating profile with:', updates);
       const { data, error: updateError } = await supabase
         .from('profiles')
         .update(updates)
@@ -134,15 +136,52 @@ export const useAuthStore = defineStore('auth', () => {
   
       if (updateError) throw updateError;
   
-      console.log('Profile updated successfully:', data); // Log the updated profile
-      profile.value = data; // Update the local store
+      console.log('Profile updated successfully:', data);
+      profile.value = data;
+  
+      // If the updated profile is a vendor and no vendor record exists, create a vendor record
+      if (updates.user_type === 'vendor') {
+        console.log('User type is vendor, checking for existing vendor record...');
+        const { data: existingVendor, error: fetchVendorError } = await supabase
+          .from('vendors')
+          .select('*')
+          .eq('profile_id', user.value.id)
+          .single();
+  
+        if (fetchVendorError && fetchVendorError.code !== 'PGRST116') {
+          console.error('Error while fetching vendor record:', fetchVendorError);
+          throw fetchVendorError;
+        }
+  
+        if (!existingVendor) {
+          console.log('No existing vendor record found, creating new vendor...');
+          const { error: createVendorError } = await supabase.from('vendors').insert({
+            profile_id: user.value.id,
+            business_name: updates.business_name || '',
+            service_type: updates.service_type || '',
+            location: updates.location || '',
+            is_verified: false, // Default to unverified
+          });
+  
+          if (createVendorError) {
+            console.error('Error while creating vendor record:', createVendorError);
+            throw createVendorError;
+          }
+  
+          console.log('Vendor record created successfully for profile ID:', user.value.id);
+        } else {
+          console.log('Vendor record already exists:', existingVendor);
+        }
+      }
     } catch (err) {
-      console.error('Update profile error:', err); // Log errors
+      console.error('Update profile error:', err);
       error.value = `Update profile error: ${(err as Error).message}`;
     } finally {
       loading.value = false;
     }
   }
+  
+  
   
 
   return {

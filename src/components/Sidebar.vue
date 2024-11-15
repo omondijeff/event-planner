@@ -9,28 +9,56 @@
     <nav class="flex-1 px-4 py-6 space-y-2">
       <RouterLink
         to="/dashboard"
-        class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700 transition duration-200"
+        class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700"
         :class="{ 'bg-gray-800': $route.path === '/dashboard' }"
       >
         <HomeIcon class="w-5 h-5 text-gray-400" />
         <span class="ml-3">Dashboard</span>
       </RouterLink>
-      <RouterLink
-        to="/profile-setup"
-        class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700 transition duration-200"
-        :class="{ 'bg-gray-800': $route.path === '/profile-setup' }"
-      >
-        <UserCircleIcon class="w-5 h-5 text-gray-400" />
-        <span class="ml-3">Profile Setup</span>
-      </RouterLink>
-      <RouterLink
-        to="/settings"
-        class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700 transition duration-200"
-        :class="{ 'bg-gray-800': $route.path === '/settings' }"
-      >
-        <CogIcon class="w-5 h-5 text-gray-400" />
-        <span class="ml-3">Settings</span>
-      </RouterLink>
+
+      <!-- Vendor-Specific Links -->
+      <div v-if="authStore.profile?.user_type === 'vendor'">
+        <RouterLink
+          to="/vendor-dashboard"
+          class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700"
+          :class="{ 'bg-gray-800': $route.path === '/vendor-dashboard' }"
+        >
+          <ShoppingBagIcon class="w-5 h-5 text-gray-400" />
+          <span class="ml-3">Vendor Dashboard</span>
+        </RouterLink>
+        <RouterLink
+          to="/venues"
+          class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700"
+          :class="{ 'bg-gray-800': $route.path === '/venues' }"
+        >
+          <BuildingStorefrontIcon class="w-5 h-5 text-gray-400" />
+          <span class="ml-3">Manage Venues</span>
+        </RouterLink>
+      </div>
+
+      <!-- Planner-Specific Links -->
+      <div v-if="authStore.profile?.user_type === 'planner'">
+        <RouterLink
+          to="/bookings"
+          class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700"
+          :class="{ 'bg-gray-800': $route.path === '/bookings' }"
+        >
+          <ClipboardDocumentIcon class="w-5 h-5 text-gray-400" />
+          <span class="ml-3">Manage Bookings</span>
+        </RouterLink>
+      </div>
+
+      <!-- Venue Manager-Specific Links -->
+      <div v-if="authStore.profile?.user_type === 'venue_manager'">
+        <RouterLink
+          to="/venues"
+          class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700"
+          :class="{ 'bg-gray-800': $route.path === '/venues' }"
+        >
+          <BuildingOfficeIcon class="w-5 h-5 text-gray-400" />
+          <span class="ml-3">Venue Management</span>
+        </RouterLink>
+      </div>
     </nav>
 
     <!-- Logout Button -->
@@ -50,14 +78,21 @@
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
 
-// Heroicons imports
-import { HomeIcon, UserCircleIcon, CogIcon, ArrowRightOnRectangleIcon } from '@heroicons/vue/24/solid';
+// Correct Heroicons imports
+import {
+  HomeIcon,
+  ShoppingBagIcon,
+  BuildingStorefrontIcon,
+  ClipboardDocumentIcon,
+  BuildingOfficeIcon,
+  ArrowRightOnRectangleIcon,
+} from '@heroicons/vue/24/solid';
 
 const authStore = useAuthStore();
 const router = useRouter();
 
 function logout() {
   authStore.logout();
-  router.push('/');
+  router.push('/login');
 }
 </script>
