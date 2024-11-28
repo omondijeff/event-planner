@@ -51,41 +51,36 @@ export const useVenueStore = defineStore('venue', {
             this.loading = true;
             this.error = null;
             try {
-                const { error } = await supabase.from('venues').insert(venueData);
-                if (error)
-                    throw error;
-                // Optionally, fetch venues again to update the state
-                if (this.venues.length)
-                    await this.fetchVenues(venueData.manager_id);
-            }
-            catch (err) {
+                const { data, error } = await supabase.from('venues').insert(venueData).select('*');
+                if (error) throw error;
+                if (data) this.venues.push(data[0]); // Add the new venue to the state
+            } catch (err) {
                 this.error = err.message;
-            }
-            finally {
+            } finally {
                 this.loading = false;
             }
         },
+        
         async updateVenue(venueId, updates) {
             this.loading = true;
             this.error = null;
             try {
-                const { error } = await supabase
+                const { data, error } = await supabase
                     .from('venues')
                     .update(updates)
-                    .eq('id', venueId);
-                if (error)
-                    throw error;
-                // Optionally, fetch the updated venue
-                if (this.venue)
-                    await this.fetchVenue(venueId);
-            }
-            catch (err) {
+                    .eq('id', venueId)
+                    .select('*');
+                if (error) throw error;
+                
+                const index = this.venues.findIndex(v => v.id === venueId);
+                if (index !== -1 && data) this.venues[index] = { ...this.venues[index], ...data[0] }; // Update state
+            } catch (err) {
                 this.error = err.message;
-            }
-            finally {
+            } finally {
                 this.loading = false;
             }
         },
+        
         async deleteVenue(venueId) {
             this.loading = true;
             this.error = null;
@@ -94,17 +89,15 @@ export const useVenueStore = defineStore('venue', {
                     .from('venues')
                     .delete()
                     .eq('id', venueId);
-                if (error)
-                    throw error;
-                // Optionally, remove the venue from the state
-                this.venues = this.venues.filter(venue => venue.id !== venueId);
-            }
-            catch (err) {
+                if (error) throw error;
+                
+                this.venues = this.venues.filter(venue => venue.id !== venueId); // Remove from state
+            } catch (err) {
                 this.error = err.message;
-            }
-            finally {
+            } finally {
                 this.loading = false;
             }
         },
+        
     },
 });

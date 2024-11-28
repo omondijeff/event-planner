@@ -105,30 +105,38 @@
   </template>
   
   <script setup lang="ts">
-  import { ref, onMounted } from 'vue';
+  import { ref, watch, onMounted } from 'vue';
   import { useVenueStore } from '@/stores/venue';
+  import { useAuthStore } from '@/stores/auth';
+  import { v4 as uuidv4 } from 'uuid';
   
   // Heroicons
   import { ArrowPathIcon, ExclamationCircleIcon } from '@heroicons/vue/24/solid';
   
+  const authStore = useAuthStore();
   const venueStore = useVenueStore();
-  const venues = ref(venueStore.venues);
+  
+  // const venues = ref(venueStore.venues);
+  const venues = ref([]); 
   const loading = ref(false);
   const error = ref<string | null>(null);
+  
   
   const showForm = ref(false);
   const formData = ref({ id: '', name: '', location: '', capacity: null });
   
   async function fetchVenues() {
-    loading.value = true;
-    try {
-      await venueStore.fetchVenues('manager_id'); // Replace with actual manager ID
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'An unexpected error occurred';
-    } finally {
-      loading.value = false;
-    }
+  loading.value = true;
+  try {
+    const managerId = authStore.user?.id;
+    if (!managerId) throw new Error("Manager ID not found");
+    await venueStore.fetchVenues(managerId);
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : "An unexpected error occurred";
+  } finally {
+    loading.value = false;
   }
+}
   
   function openCreateForm() {
     formData.value = { id: '', name: '', location: '', capacity: null };
@@ -140,23 +148,68 @@
     showForm.value = true;
   }
   
-  async function saveVenue() {
-    if (formData.value.id) {
-      await venueStore.updateVenue(formData.value.id, formData.value);
-    } else {
-      await venueStore.createVenue({ ...formData.value, manager_id: 'manager_id' }); // Replace with manager ID
-    }
-    showForm.value = false;
+ 
+
+//   async function saveVenue() {
+//   const managerId = authStore.user?.id;
+
+//   if (formData.value.id) {
+//     await venueStore.updateVenue(formData.value.id, formData.value);
+//   } else {
+//     formData.value.id = uuidv4();  // Generate UUID
+//     await venueStore.createVenue({ ...formData.value, manager_id: managerId });
+//   }
+//   showForm.value = false;
+// }
+async function saveVenue() {
+  const managerId = authStore.user?.id;
+
+  if (!managerId) {
+    alert("Manager ID is required.");
+    return;
   }
+
+  if (!formData.value.name || !formData.value.location || formData.value.capacity == null) {
+    alert("All fields are required.");
+    return;
+  }
+
+  if (formData.value.id) {
+    await venueStore.updateVenue(formData.value.id, formData.value);
+  } else {
+    formData.value.id = uuidv4();  // Generate UUID
+    await venueStore.createVenue({ ...formData.value, manager_id: managerId });
+  }
+  showForm.value = false;
+}
+
+
+  // async function deleteVenue(venueId) {
+  //   await venueStore.deleteVenue(venueId);
+  // }
   
+
   async function deleteVenue(venueId) {
-    await venueStore.deleteVenue(venueId);
+  try {
+    if (confirm("Are you sure you want to delete this venue?")) {
+      await venueStore.deleteVenue(venueId);
+      fetchVenues(); // Refresh the list
+    }
+  } catch (err) {
+    alert("Failed to delete venue: " + err.message);
   }
-  
+}
+
   function closeForm() {
     showForm.value = false;
   }
   
-  onMounted(fetchVenues);
+  onMounted(async () => {
+  await fetchVenues();
+  venues.value = venueStore.venues; // Update the reactive reference after fetching
+});
+watch(() => venueStore.venues, (newVenues) => {
+    venues.value = newVenues;
+});
   </script>
   
