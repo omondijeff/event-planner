@@ -116,7 +116,7 @@
   const authStore = useAuthStore();
   const venueStore = useVenueStore();
   
-  // const venues = ref(venueStore.venues);
+  // const venues = ref(venueStore.venues);ßß
   const venues = ref([]); 
   const loading = ref(false);
   const error = ref<string | null>(null);
