@@ -7,6 +7,7 @@
 
     <!-- Navigation Links -->
     <nav class="flex-1 px-4 py-6 space-y-2">
+      <!-- Dashboard -->
       <RouterLink
         to="/dashboard"
         class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700"
@@ -17,7 +18,7 @@
       </RouterLink>
 
       <!-- Vendor-Specific Links -->
-      <div v-if="authStore.profile?.user_type === 'vendor'">
+      <div v-if="authStore.profile?.user_type === 'vendor' || authStore.profile?.user_type === 'admin'">
         <RouterLink
           to="/vendor-dashboard"
           class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700"
@@ -37,7 +38,7 @@
       </div>
 
       <!-- Planner-Specific Links -->
-      <div v-if="authStore.profile?.user_type === 'planner'">
+      <div v-if="authStore.profile?.user_type === 'planner' || authStore.profile?.user_type === 'admin'">
         <RouterLink
           to="/bookings"
           class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700"
@@ -49,7 +50,7 @@
       </div>
 
       <!-- Venue Manager-Specific Links -->
-      <div v-if="authStore.profile?.user_type === 'venue_manager'">
+      <div v-if="authStore.profile?.user_type === 'venue_manager' || authStore.profile?.user_type === 'admin'">
         <RouterLink
           to="/venues"
           class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700"

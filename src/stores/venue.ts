@@ -1,251 +1,183 @@
-import { defineStore } from 'pinia';
-import { supabase } from '@/lib/supabase';
-import type { Venue } from '@/lib/database.types';
+import { defineStore } from "pinia";
+import { ref, computed } from "vue";
+import { supabase } from "@/lib/supabase";
+import { Logger } from "@/utils/logger";
+import type { Venue } from "@/lib/database.types";
 
-export const useVenueStore = defineStore('venue', {
-  state: () => ({
-    venues: [] as Venue[],
-    venue: null as Venue | null,
-    loading: false,
-    error: null as string | null,
-  }),
+export const useVenueStore = defineStore("venue", () => {
+  // State
+  const venues = ref<Venue[]>([]);
+  const venue = ref<Venue | null>(null);
+  const loading = ref(false);
+  const error = ref<string | null>(null);
 
-  actions: {
-    async fetchVenues(managerId: string) {
-      this.loading = true;
-      this.error = null;
-      try {
-        const { data, error } = await supabase
-          .from('venues')
-          .select('*')
-          .eq('manager_id', managerId);
+  // Computed Properties
+  const hasVenues = computed(() => venues.value.length > 0);
 
-        if (error) throw error;
-        this.venues = data as Venue[];
-      } catch (err) {
-        this.error = (err as Error).message;
-      } finally {
-        this.loading = false;
+  // Local Storage Helpers
+  function saveToLocalStorage() {
+    Logger.info("Saving venues to local storage...", { venues: venues.value });
+    localStorage.setItem("venues", JSON.stringify(venues.value));
+  }
+
+  function loadFromLocalStorage() {
+    Logger.info("Loading venues from local storage...");
+    const storedVenues = localStorage.getItem("venues");
+    if (storedVenues) {
+      venues.value = JSON.parse(storedVenues);
+      Logger.info("Venues loaded from local storage", { count: venues.value.length });
+    }
+  }
+
+  // Cache Expiry
+  let cacheExpiry = 0;
+  function isCacheValid() {
+    return Date.now() < cacheExpiry;
+  }
+
+  // Actions
+  /**
+   * Fetch all venues for the specified manager.
+   * @param managerId ID of the manager or `null` for all venues.
+   * @param forceRefresh Force fetch fresh data from backend.
+   */
+  async function fetchVenues(managerId: string | null, forceRefresh = false) {
+    if (!forceRefresh && isCacheValid() && venues.value.length > 0) {
+      Logger.info("Using cached venues", { managerId });
+      return;
+    }
+
+    loading.value = true;
+    error.value = null;
+    Logger.info("Starting fetchVenues", { managerId });
+
+    try {
+      let query = supabase.from("venues").select("*");
+      if (managerId) query = query.eq("manager_id", managerId);
+
+      const { data, error: fetchError } = await query;
+
+      if (fetchError) throw fetchError;
+
+      venues.value = data || [];
+      cacheExpiry = Date.now() + 5 * 60 * 1000; // Cache for 5 minutes
+      saveToLocalStorage();
+      Logger.info("Successfully fetched venues", { count: venues.value.length });
+    } catch (err) {
+      error.value = `Error fetching venues: ${(err as Error).message}`;
+      Logger.error("Failed to fetch venues", err, { managerId });
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  /**
+   * Delete a venue.
+   * @param venueId ID of the venue to delete.
+   */
+  async function deleteVenue(venueId: string) {
+    loading.value = true;
+    error.value = null;
+    Logger.info("Starting deleteVenue", { venueId });
+
+    try {
+      const { error: deleteError } = await supabase
+        .from("venues")
+        .delete()
+        .eq("id", venueId);
+
+      if (deleteError) throw deleteError;
+
+      // Remove the deleted venue from the state
+      venues.value = venues.value.filter((v) => v.id !== venueId);
+
+      Logger.info("Successfully deleted venue", { venueId });
+
+      // Fetch fresh data from the backend to avoid inconsistencies
+      await fetchVenues(null, true);
+    } catch (err) {
+      error.value = `Error deleting venue: ${(err as Error).message}`;
+      Logger.error("Failed to delete venue", err, { venueId });
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  /**
+   * Create a new venue.
+   * @param venueData Data for the new venue.
+   */
+  async function createVenue(venueData: Omit<Venue, "id" | "created_at">) {
+    loading.value = true;
+    error.value = null;
+    Logger.info("Starting createVenue", { venueData });
+
+    try {
+      const { data, error: insertError } = await supabase
+        .from("venues")
+        .insert(venueData)
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      if (data) {
+        Logger.info("Successfully created venue", { venueId: data.id });
+
+        // Fetch fresh data from the backend to avoid inconsistencies
+        await fetchVenues(null, true);
       }
-    },
+    } catch (err) {
+      error.value = `Error creating venue: ${(err as Error).message}`;
+      Logger.error("Failed to create venue", err, { venueData });
+    } finally {
+      loading.value = false;
+    }
+  }
 
-    async fetchVenue(venueId: string) {
-      this.loading = true;
-      this.error = null;
-      try {
-        const { data, error } = await supabase
-          .from('venues')
-          .select('*')
-          .eq('id', venueId)
-          .single();
+  /**
+   * Update an existing venue.
+   * @param venueId ID of the venue to update.
+   * @param updates Partial updates for the venue.
+   */
+  async function updateVenue(venueId: string, updates: Partial<Venue>) {
+    loading.value = true;
+    error.value = null;
+    Logger.info("Starting updateVenue", { venueId, updates });
 
-        if (error) throw error;
-        this.venue = data as Venue;
-      } catch (err) {
-        this.error = (err as Error).message;
-      } finally {
-        this.loading = false;
+    try {
+      const { data, error: updateError } = await supabase
+        .from("venues")
+        .update(updates)
+        .eq("id", venueId)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      if (data) {
+        Logger.info("Successfully updated venue", { venueId });
+
+        // Fetch fresh data from the backend to avoid inconsistencies
+        await fetchVenues(null, true);
       }
-    },
+    } catch (err) {
+      error.value = `Error updating venue: ${(err as Error).message}`;
+      Logger.error("Failed to update venue", err, { venueId, updates });
+    } finally {
+      loading.value = false;
+    }
+  }
 
-    async createVenue(venueData: Omit<Venue, 'id' | 'created_at'>) {
-      this.loading = true;
-      this.error = null;
-      try {
-        const { error } = await supabase.from('venues').insert(venueData);
-        if (error) throw error;
-
-        // Optionally, fetch venues again to update the state
-        if (this.venues.length) await this.fetchVenues(venueData.manager_id);
-      } catch (err) {
-        this.error = (err as Error).message;
-      } finally {
-        this.loading = false;
-      }
-    },
-
-    async updateVenue(venueId: string, updates: Partial<Venue>) {
-      this.loading = true;
-      this.error = null;
-      try {
-        const { error } = await supabase
-          .from('venues')
-          .update(updates)
-          .eq('id', venueId);
-        if (error) throw error;
-
-        // Optionally, fetch the updated venue
-        if (this.venue) await this.fetchVenue(venueId);
-      } catch (err) {
-        this.error = (err as Error).message;
-      } finally {
-        this.loading = false;
-      }
-    },
-
-    async deleteVenue(venueId: string) {
-      this.loading = true;
-      this.error = null;
-      try {
-        const { error } = await supabase
-          .from('venues')
-          .delete()
-          .eq('id', venueId);
-        if (error) throw error;
-
-        // Optionally, remove the venue from the state
-        this.venues = this.venues.filter(venue => venue.id !== venueId);
-      } catch (err) {
-        this.error = (err as Error).message;
-      } finally {
-        this.loading = false;
-      }
-    },
-  },
+  return {
+    venues,
+    venue,
+    loading,
+    error,
+    hasVenues,
+    fetchVenues,
+    deleteVenue,
+    createVenue,
+    updateVenue,
+  };
 });
-
-// import { defineStore } from 'pinia';
-// import { ref } from 'vue';
-// import { supabase } from '@/lib/supabase';
-// import type { Venue } from '@/lib/database.types';
-
-// export const useVenueStore = defineStore('venues', () => {
-//   // State variables for venues data, loading state, error state, and a single venue
-//   const venues = ref<Venue[]>([]);
-//   const venue = ref<Venue | null>(null);
-//   const loading = ref(false);
-//   const error = ref<string | null>(null);
-
-//   // Helper function to handle setting loading state and catching errors
-//   const handleLoadingAndError = (action: () => Promise<any>) => {
-//     loading.value = true;
-//     error.value = null;
-
-//     return action()
-//       .then((data) => data) // Return successful data
-//       .catch((err) => {
-//         error.value = (err as Error).message; // Capture and set the error message
-//         throw err; // Rethrow for further handling
-//       })
-//       .finally(() => {
-//         loading.value = false; // Set loading to false regardless of success or error
-//       });
-//   };
-
-//   /**
-//    * Fetch all venues for a given manager.
-//    * @param managerId Optional manager ID to filter venues.
-//    */
-//   const fetchVenues = async (managerId?: string) => {
-//     try {
-//       const { data, error: supabaseError } = await supabase
-//         .from('venues')
-//         .select('*')
-//         .eq('manager_id', managerId || ''); // Fetch venues filtered by manager_id
-
-//       if (supabaseError) throw new Error(supabaseError.message); // Handle errors
-//       venues.value = data || []; // Set fetched data to venues state
-//     } catch (err) {
-//       error.value = (err as Error).message; // Set error state
-//     } finally {
-//       loading.value = false;
-//     }
-//   };
-
-//   /**
-//    * Fetch a specific venue by its ID.
-//    * @param venueId ID of the venue to fetch.
-//    */
-//   const fetchVenue = async (venueId: string) => {
-//     try {
-//       const { data, error: supabaseError } = await supabase
-//         .from('venues')
-//         .select('*')
-//         .eq('id', venueId)
-//         .single(); // Fetch a single venue by its ID
-
-//       if (supabaseError) throw new Error(supabaseError.message); // Handle errors
-//       venue.value = data || null; // Set the venue data or null if not found
-//     } catch (err) {
-//       error.value = (err as Error).message; // Set error state
-//     } finally {
-//       loading.value = false;
-//     }
-//   };
-
-//   /**
-//    * Create a new venue with the provided data.
-//    * @param venueData Data of the venue to create.
-//    */
-//   const createVenue = async (venueData: Partial<Venue>) => {
-//     try {
-//       const { data, error: supabaseError } = await supabase
-//         .from('venues')
-//         .insert(venueData)
-//         .select(); // Insert a new venue
-
-//       if (supabaseError) throw new Error(supabaseError.message); // Handle errors
-//       if (data) venues.value.push(data[0]); // Add the created venue to the state
-//     } catch (err) {
-//       error.value = (err as Error).message; // Set error state
-//     } finally {
-//       loading.value = false;
-//     }
-//   };
-
-//   /**
-//    * Update an existing venue's data.
-//    * @param venueId ID of the venue to update.
-//    * @param updates Partial updates to apply to the venue.
-//    */
-//   const updateVenue = async (venueId: string, updates: Partial<Venue>) => {
-//     try {
-//       const { data, error: supabaseError } = await supabase
-//         .from('venues')
-//         .update(updates)
-//         .eq('id', venueId)
-//         .select(); // Update venue data by its ID
-
-//       if (supabaseError) throw new Error(supabaseError.message); // Handle errors
-//       const index = venues.value.findIndex((v) => v.id === venueId); // Find the venue by ID
-//       if (index !== -1 && data) venues.value[index] = data[0]; // Update the venue in the state
-//     } catch (err) {
-//       error.value = (err as Error).message; // Set error state
-//     } finally {
-//       loading.value = false;
-//     }
-//   };
-
-//   /**
-//    * Delete a venue by its ID.
-//    * @param venueId ID of the venue to delete.
-//    */
-//   const deleteVenue = async (venueId: string) => {
-//     try {
-//       const { error: supabaseError } = await supabase
-//         .from('venues')
-//         .delete()
-//         .eq('id', venueId); // Delete venue by its ID
-
-//       if (supabaseError) throw new Error(supabaseError.message); // Handle errors
-//       venues.value = venues.value.filter((v) => v.id !== venueId); // Remove the deleted venue from the state
-//     } catch (err) {
-//       error.value = (err as Error).message; // Set error state
-//     } finally {
-//       loading.value = false;
-//     }
-//   };
-
-//   // Return the state and actions for use in components
-//   return {
-//     venues,
-//     venue,
-//     loading,
-//     error,
-//     fetchVenues,
-//     fetchVenue,
-//     createVenue,
-//     updateVenue,
-//     deleteVenue,
-//   };
-// });

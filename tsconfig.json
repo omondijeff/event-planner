@@ -9,7 +9,7 @@
       "@/*": ["*"],
       "@supabase/supabase-js": ["node_modules/@supabase/supabase-js/dist/index.js"]
     },
-    "types": ["vite/client", "@supabase/supabase-js"],
+    "types": ["vite/client", "@supabase/supabase-js", "pinia", "vue", "node"],
     "skipLibCheck": true
   },
   "include": ["src/**/*", "vite.config.ts"],
