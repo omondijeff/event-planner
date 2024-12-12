@@ -1,16 +1,18 @@
 {
   "compilerOptions": {
     "esModuleInterop": true,
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "target": "es2020",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "target": "ES2020",
     "baseUrl": "./src",
     "paths": {
       "@/*": ["*"],
       "@supabase/supabase-js": ["node_modules/@supabase/supabase-js/dist/index.js"]
     },
-    "types": ["@supabase/supabase-js"]
+    "types": ["vite/client", "@supabase/supabase-js"],
+    "skipLibCheck": true
   },
+  "include": ["src/**/*", "vite.config.ts"],
   "references": [
     { "path": "./tsconfig.app.json" }
   ]
