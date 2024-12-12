@@ -47,6 +47,30 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
+  // User Login
+  async function login(email: string, password: string) {
+    Logger.info("Attempting user login", { email });
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+      if (loginError) throw loginError;
+
+      user.value = data.user;
+      if (user.value) {
+        await fetchProfile();
+      }
+
+      Logger.info("User logged in successfully", { email });
+    } catch (err) {
+      error.value = `Login error: ${(err as Error).message}`;
+      Logger.error("Failed to log in user", err, { email });
+    } finally {
+      loading.value = false;
+    }
+  }
+
   // User Registration
   async function register(email: string, password: string) {
     Logger.info("Attempting user registration", { email });
@@ -171,9 +195,10 @@ export const useAuthStore = defineStore("auth", () => {
     userRole,
     hasPermission,
     initialize,
+    login,
     register,
     logout,
     fetchProfile,
-    updateProfile, // Ensure this is exported
+    updateProfile,
   };
 });

@@ -1,12 +1,10 @@
-// src/lib/database.types.ts
-
 export type UUID = string; // Alias for UUID type
 
 // Profile Table Structure
 export interface Profile {
   id: UUID; // references auth.users primary key
   full_name?: string | null;
-  user_type: 'planner' | 'vendor' | 'venue_manager';
+  user_type: 'planner' | 'vendor' | 'venue_manager' | 'admin';
   email?: string | null;
   location?: string | null;
   created_at: Date;
@@ -62,6 +60,19 @@ export interface Message {
   created_at: Date;
 }
 
+// Inventory Table Structure
+export interface Inventory {
+  id: UUID; // Primary key
+  name: string; // Name of the inventory item
+  type: 'table' | 'chair' | 'decoration' | 'stage' | 'lighting' | 'other'; // Type of item
+  dimensions: { width: number; height: number; depth: number }; // Dimensions in meters
+  capacity?: number | null; // Optional capacity (e.g., number of people it can accommodate)
+  quantity: number; // Available quantity
+  vendor_id: UUID | null; // Foreign key referencing Profile.id (vendor)
+  created_at: Date; // Timestamp
+  updated_at: Date; // Timestamp
+}
+
 // Main Database Schema Interface
 export interface Database {
   public: {
@@ -80,6 +91,9 @@ export interface Database {
       };
       messages: {
         Row: Message;
+      };
+      inventory: {
+        Row: Inventory;
       };
     };
   };
