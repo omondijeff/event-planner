@@ -38,23 +38,12 @@ const router = createRouter({
             component: () => import('@/views/VendorDashboard.vue'),
             meta: { requiresAuth: true, requiresVendor: true },
         },
-       
-
         {
-            path: '/venues',  // Update this path to use the VenueList component
+            path: '/venues',
             name: 'VenueManagement',
-            component: () => import('@/views/VenueManagement.vue'),  // Import VenueList.vue src\views\VenueManagement.vue
-            meta: { requiresAuth: true, requiresVenueManager: true },  // Only Venue Managers
+            component: () => import('@/views/VenueManagement.vue'),
+            meta: { requiresAuth: true, requiresVendor: true },
         },
-
-
-        // {
-        //     path: '/event-explorer',
-        //     name: 'EventExplorer',
-        //     component: () => import('@/components/events/EventExplorer.vue'),
-        //     meta: { requiresAuth: true, requiresEventExplorer: true },  // Accessible by Event Planners and Vendors
-        // }
-        
     ],
 });
 // Combined Navigation Guard
@@ -75,16 +64,6 @@ router.beforeEach(async (to, from, next) => {
     // Restrict vendor-specific routes
     if (to.meta.requiresVendor && authStore.profile?.user_type !== 'vendor') {
         return next('/dashboard'); // Redirect non-vendors to a general dashboard
-    }
-
-    // Restrict access to Venue Management for Venue Managers only
-    if (to.meta.requiresVenueManager && authStore.profile?.user_type !== 'venue_manager') {
-        return next('/dashboard');  // Redirect non-Venue Managers to the dashboard
-    }
-    
-    // You can add similar logic for Event Explorer if needed for Event Planners and Vendors
-    if (to.meta.requiresEventExplorer && !['event_planner', 'vendor'].includes(authStore.profile?.user_type)) {
-        return next('/dashboard');  // Redirect non-Event Planners or Vendors to the dashboard
     }
     // Proceed to the route
     next();

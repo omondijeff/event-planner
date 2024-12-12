@@ -1,13 +1,16 @@
-// tsconfig.app.json
 {
   "compilerOptions": {
-    "composite": true,          
-    "module": "esnext",
-    "target": "es2020",
+    "composite": true,
+    "module": "ESNext",
+    "target": "ES2020",
     "baseUrl": "./src",
     "paths": {
       "@/*": ["*"]
-    }
+    },
+    "types": ["vite/client"],
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./dist/types"
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
 }

@@ -1,22 +1,18 @@
 {
   "compilerOptions": {
     "esModuleInterop": true,
-    "module": "ESNext",  // ESNext instead of NodeNext for compatibility with modern TypeScript
-    "moduleResolution": "node",  // Ensure Node.js resolution
-    "target": "es2020",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "target": "ES2020",
     "baseUrl": "./src",
     "paths": {
-      "@/*": ["*"],  // This maps @ to the src directory
-      "@supabase/supabase-js": ["node_modules/@supabase/supabase-js/dist/index.js"],
-      "vue": ["node_modules/vue/dist/vue.global.js"],
-      "pinia": ["node_modules/pinia/dist/pinia.esm.js"],
-      "vue-router": ["node_modules/vue-router/dist/vue-router.global.js"]
+      "@/*": ["*"],
+      "@supabase/supabase-js": ["node_modules/@supabase/supabase-js/dist/index.js"]
     },
-    "types": ["@supabase/supabase-js"],  // Ensure Supabase types are included
-    "resolveJsonModule": true,  // Add this to allow importing JSON modules if needed
-    "skipLibCheck": true,  // Skip type checking for library files for faster builds
-    "strict": true  // Ensure strict type checking is enabled
+    "types": ["vite/client", "@supabase/supabase-js"],
+    "skipLibCheck": true
   },
+  "include": ["src/**/*", "vite.config.ts"],
   "references": [
     { "path": "./tsconfig.app.json" }
   ]
