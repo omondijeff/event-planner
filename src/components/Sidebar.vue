@@ -28,6 +28,14 @@
           <span class="ml-3">Vendor Dashboard</span>
         </RouterLink>
         <RouterLink
+          to="/inventory"
+          class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700"
+          :class="{ 'bg-gray-800': $route.path === '/vendor-dashboard' }"
+        >
+          <ShoppingBagIcon class="w-5 h-5 text-gray-400" />
+          <span class="ml-3">Inventory</span>
+        </RouterLink>
+        <RouterLink
           to="/venues"
           class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700"
           :class="{ 'bg-gray-800': $route.path === '/venues' }"
