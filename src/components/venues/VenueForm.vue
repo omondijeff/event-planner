@@ -175,99 +175,179 @@
         console.log("onMounted: Form populated with venue data", form.value);
       }
     });
-  // Handle Image Upload
-const handleImageUpload = (event) => {
-  const files = event.target.files;
-  previewImages.value = []; // Clear previous previews
 
-  if (files.length > 0) {
-    // Create preview URLs for image display
-    Array.from(files).forEach((file) => {
-      previewImages.value.push(URL.createObjectURL(file));
-    });
+        
+    // Handle Image Upload
+    const handleImageUpload = (event) => {
+      const files = Array.from(event.target.files).filter(file => file instanceof File);
+      
+      // Log details about the selected files
+      console.log("Selected Image Files:", files);
 
-    // Directly mutate the uploadedFiles array
-    uploadedFiles.value.push(...Array.from(files));
-  }
-  console.log("Images to be uploaded:", uploadedFiles.value);
-};
+      // Generate previews for image files
+      previewImages.value = files.map(file => {
+        console.log(`Creating preview for file: ${file.name}`);
+        return URL.createObjectURL(file); 
+      });
 
+      // Add the files to the uploadedFiles array
+      uploadedFiles.value.push(...files);
+      console.log("Updated Image Files for Upload:", uploadedFiles.value);
 
-
-    
-// Handle Floor Plan Upload
-const handleFloorPlanUpload = (event) => {
-  const files = event.target.files;
-  previewFloorPlans.value = []; // Clear previous floor plan previews
-
-  if (files.length > 0) {
-    // Create preview URLs for floor plan display
-    Array.from(files).forEach((file) => {
-      previewFloorPlans.value.push(URL.createObjectURL(file));
-    });
-
-    // Directly mutate the uploadedFloorPlans array
-    uploadedFloorPlans.value.push(...Array.from(files));
-  }
-  console.log("Floor Plans to be uploaded:", uploadedFloorPlans.value);
-};
-
-
-
-const saveVenue = async () => {
-  loading.value = true; // Start loading indicator
-  error.value = null; // Reset any previous errors
-  const venueStore = useVenueStore();  // Create an instance of the store
-
-  const venueData = { ...form.value }; // Extract form data
-
-  console.log("Image files:", uploadedFiles.value.length);
-console.log("Floor plan files:", uploadedFloorPlans.value.length);
-
-
-  try {
-    // Conditionally upload image files if selected
-    const imageUrls = uploadedFiles.value.length
-      ? await venueStore.uploadFilesToCloudinary(uploadedFiles.value, 'venue_images', import.meta.env.VITE_CLOUDINARY_VENUE_IMAGES_PRESET)
-      : [];
-      console.log("Uploaded files for images:", uploadedFiles.value);
-
-    // Conditionally upload floor plan files if selected
-    const floorPlanUrls = uploadedFloorPlans.value.length
-      ? await venueStore.uploadFilesToCloudinary(uploadedFloorPlans.value, 'floor_plan_images', import.meta.env.VITE_CLOUDINARY_FLOOR_PLAN_PRESET)
-      : [];
-      console.log("Uploaded files for floor plans:", uploadedFloorPlans.value);
-
-    // Combine the form data with the uploaded file URLs
-    const updatedVenueData = {
-      ...venueData,
-      images: imageUrls, // Store image URLs
-      floor_plan_url: floorPlanUrls, // Store floor plan URLs
+      // Log details about each file for debugging
+      uploadedFiles.value.forEach((file, index) => {
+        console.log(`File ${index + 1}:`, {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          valid: file instanceof File,
+        });
+      });
     };
 
-    // Decide whether to create or update the venue
-    if (props.venue) {
-      console.log('Updating venue:', updatedVenueData);
-      await venueStore.updateVenue(props.venue.id, updatedVenueData); // Update existing venue
-    } else {
-      console.log('Creating new venue:', updatedVenueData);
-      await venueStore.createVenue(updatedVenueData); // Create a new venue
+    // Handle Floor Plan Upload
+    const handleFloorPlanUpload = (event) => {
+      const files = Array.from(event.target.files).filter(file => file instanceof File);
+      
+      // Log details about the selected files
+      console.log("Selected Floor Plan Files:", files);
+
+      // Generate previews for floor plan files
+      previewFloorPlans.value = files.map(file => {
+        console.log(`Creating preview for file: ${file.name}`);
+        return URL.createObjectURL(file);
+      });
+
+      // Add the files to the uploadedFloorPlans array
+      uploadedFloorPlans.value.push(...files);
+      console.log("Updated Floor Plan Files for Upload:", uploadedFloorPlans.value);
+
+      // Log details about each floor plan file for debugging
+      uploadedFloorPlans.value.forEach((file, index) => {
+        console.log(`Floor Plan File ${index + 1}:`, {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          valid: file instanceof File,
+        });
+      });
+    };
+
+
+      const saveVenue = async () => {
+    // Start loading state and reset errors
+    loading.value = true;
+    error.value = null;
+
+    const venueStore = useVenueStore(); // Access the venue store
+    const venueData = { ...form.value }; // Clone form data for updates
+
+    console.log("Starting saveVenue process...");
+    console.log("Image files to upload:", uploadedFiles.value.length);
+    console.log("Floor plan files to upload:", uploadedFloorPlans.value.length);
+
+    // Validate uploaded files
+    if (!areValidFiles(uploadedFiles.value)) {
+      console.error("Invalid files in uploadedFiles. Ensure all are File objects.");
+      loading.value = false;
+      return;
     }
 
-    // Emit success event and close modal
-    emit('saved', updatedVenueData);
-    emit('close');
-    console.log('Venue saved successfully');
-  } catch (err) {
-    // Handle errors gracefully
-    error.value = `Error saving venue: ${(err).message}`;
-    console.error(error.value);
-  } finally {
-    loading.value = false; // Reset loading state
+    if (!areValidFiles(uploadedFloorPlans.value)) {
+      console.error("Invalid files in uploadedFloorPlans. Ensure all are File objects.");
+      loading.value = false;
+      return;
+    }
+
+    console.log("All uploaded files are valid.");
+
+    try {
+      // Upload image files if available
+      let imagePublicIds = [];
+      if (uploadedFiles.value.length) {
+        imagePublicIds = await venueStore.uploadFilesToCloudinary(
+          uploadedFiles.value,
+          "venue_images",
+          import.meta.env.VITE_CLOUDINARY_VENUE_IMAGES_PRESET
+        );
+        console.log("Cloudinary response for Image Upload:", imagePublicIds); // Log the Cloudinary response
+      }
+
+      // Upload floor plan files if available
+      let floorPlanPublicIds = [];
+      if (uploadedFloorPlans.value.length) {
+        floorPlanPublicIds = await venueStore.uploadFilesToCloudinary(
+          uploadedFloorPlans.value,
+          "floor_plan_images",
+          import.meta.env.VITE_CLOUDINARY_FLOOR_PLAN_PRESET
+        );
+        console.log("Cloudinary response for Floor Plan Upload:", floorPlanPublicIds); // Log the Cloudinary response
+      }
+
+     // Combine the form data with the uploaded public IDs
+    const updatedVenueData = {
+      ...venueData,
+      images: imagePublicIds.length ? imagePublicIds : [], // Ensure images is always an array
+      floor_plan_url: floorPlanPublicIds.length ? floorPlanPublicIds : [], // Ensure floor_plan_url is always an array
+    };
+
+    // Log final data before insertion
+    console.log("Final Venue Data to be saved:", updatedVenueData);
+
+
+    // Validate the updated venue data to avoid undefined/null errors
+    if (!updatedVenueData.images || !updatedVenueData.floor_plan_url) {
+      console.error("Missing required fields in venue data:", updatedVenueData);
+      loading.value = false;
+      return;
+    }
+    
+
+    if (imagePublicIds.length === 0 || floorPlanPublicIds.length === 0) {
+    console.error("Image or Floor Plan upload failed: No valid public IDs returned.");
+    loading.value = false;
+    return;
+}
+
+
+
+      // Determine whether to create a new venue or update an existing one
+      if (props.venue) {
+        console.log("Updating venue with data:", updatedVenueData);
+        const updateResponse = await venueStore.updateVenue(props.venue.id, updatedVenueData);
+        console.log("Update Response:", updateResponse); // Log response from updating venue
+      } else {
+        console.log("Creating new venue with data:", updatedVenueData);
+        const createResponse = await venueStore.createVenue(updatedVenueData);
+        console.log("Create Response:", createResponse); // Log response from creating venue
+      }
+
+      // Emit success event and close modal
+      emit("saved", updatedVenueData);
+      emit("close");
+      console.log("Venue saved successfully.");
+    } catch (err) {
+      // Capture and log any errors
+      error.value = `Error saving venue: ${(err).message}`;
+      console.error(error.value);
+    } finally {
+      // Reset loading state
+      loading.value = false;
+    }
+
+    console.log("saveVenue process completed.");
+  };
+
+
+  /**
+   * Helper function to validate files.
+   * Ensures all items in the array are valid File objects.
+   * @param {Array} files - Array of files to validate
+   * @returns {boolean} - True if all files are valid, otherwise false
+   */
+  function areValidFiles(files) {
+    return Array.isArray(files) && files.every(file => file instanceof File);
   }
-  console.log("Uploaded Image URLs:", imageUrls);
-  console.log("Uploaded Floor Plan URLs:", floorPlanUrls);
-};
 
 
 

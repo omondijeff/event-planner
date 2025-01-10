@@ -41,60 +41,56 @@ const uploadedFloorPlans = ref<File[]>([]);
   }
 
 
-/**
- * Helper function to upload files to Cloudinary and return their URLs.
- * @param files Files to upload.
- * @param folder Cloudinary folder for storing the files.
- * @param preset Cloudinary upload preset to use.
- * @returns Array of secure URLs for the uploaded files.
- */
-const uploadFilesToCloudinary = async (
-  files: File[], // Array of files to upload
-  folder: string, // The folder in Cloudinary to store the files
-  preset: string // The upload preset for Cloudinary
-): Promise<string[]> => {
-  const urls: string[] = [];
+  const uploadFilesToCloudinary = async (
+    files: File[], // Array of files to upload
+    folder: string, // The folder in Cloudinary to store the files
+    preset: string // The upload preset for Cloudinary
+  ): Promise<string[]> => {
+    const publicIds: string[] = [];
+    
+    // Log the number of files to be uploaded and the target folder.
+    console.log(`Starting file upload to Cloudinary: ${files.length} files to upload to folder '${folder}'`);
   
-  // Log the number of files to be uploaded
-  Logger.info(`Starting file upload`, { folder, fileCount: files.length });
-
-  for (const file of files) {
-    Logger.info(`Uploading file`, { fileName: file.name });
-
-    try {
-      // Call the existing function to upload the file to Cloudinary
-      const fileUrl = await uploadToCloudinary(file, folder, preset);
-
-      // Log the successful upload and the resulting URL
-      Logger.info(`Successfully uploaded file`, { fileName: file.name, fileUrl });
-      console.log(`File uploaded successfully 2-CHECK URL NOW: ${file.name}, URL: ${fileUrl}`);
-
-
-      // if (!Array.isArray(urls) || urls.some(url => typeof url !== "string")) {
-      //   throw new Error("Invalid URLs returned from Cloudinary upload");
-      // }
-
-      // Push the file URL to the array
-      urls.push(fileUrl); 
-    } catch (err) {
-      // Log detailed error information
-      Logger.error(`Error uploading file`, {
-        fileName: file.name,
-        folder,
-        error: err,
-      });
-
-      // Rethrow the error after logging it
-      throw new Error(`Failed to upload files to Cloudinary.`);
+    for (const file of files) {
+      // Log each file being uploaded
+      console.log(`Uploading file: ${file.name}`);
+  
+      try {
+        // Call the existing function to upload the file to Cloudinary
+        const publicId = await uploadToCloudinary(file, folder, preset);
+  
+        // Log the successful upload and the resulting public_id
+        console.log(`File uploaded successfully: ${file.name}, public_id: ${publicId}`);
+  
+        // Validate if the public_id is returned correctly
+        if (typeof publicId !== "string") {
+          throw new Error("Invalid public_id returned from Cloudinary upload");
+        }
+  
+        // Push the public_id to the array
+        publicIds.push(publicId);
+      } catch (err) {
+        // Log detailed error information
+        console.error(`Error uploading file: ${file.name}`, {
+          error: (err as Error).message,
+          folder,
+        });
+  
+        // Rethrow the error after logging it
+        throw new Error(`Failed to upload files to Cloudinary.`);
+      }
     }
+    if (publicIds.length === 0) {
+      throw new Error("No files were successfully uploaded.");
   }
-
-  // Log the URLs of all successfully uploaded files
-  Logger.info(`All files uploaded successfully`, { urls });
-
-  // Return the array of uploaded file URLs
-  return urls;
-};
+  
+    // Log the public_ids of all successfully uploaded files
+    console.log(`All files uploaded successfully. Public IDs:`, publicIds);
+  
+    // Return the array of uploaded file public_ids
+    return publicIds;
+  };
+  
 
   
 
@@ -123,6 +119,9 @@ const uploadFilesToCloudinary = async (
       if (fetchError) throw fetchError;
 
       venues.value = data || [];
+      console.log("Venues fetched:", venues.value);  // Log venues after fetch
+
+
       cacheExpiry = Date.now() + 5 * 60 * 1000; // Cache for 5 minutes
       saveToLocalStorage();
       Logger.info("Successfully fetched venues", { count: venues.value.length });
@@ -166,77 +165,46 @@ const uploadFilesToCloudinary = async (
     }
   }
 
-  /**
-   * Create a new venue.
-   * @param venueData Data for the new venue.
-   */
-  async function createVenue(venueData: Omit<Venue, "id" | "created_at">) {
-    loading.value = true;
-    error.value = null;
-    Logger.info("Starting createVenue", { venueData });
-  
-    try {
-      // Upload images using the helper functionuploadedFiles.value
-      const imageUrls: string[] = await uploadFilesToCloudinary(
-        uploadedFiles.value, 
-        "venue_images", 
-        import.meta.env.VITE_CLOUDINARY_VENUE_IMAGES_PRESET
-      );
-  
-      // Upload floor plans using the helper function
-      const floorPlanUrls: string[] = await uploadFilesToCloudinary(
-        uploadedFloorPlans.value, 
-        "floor_plan_images", 
-        import.meta.env.VITE_CLOUDINARY_FLOOR_PLAN_PRESET
-      );
+ /**
+ * Create a new venue.
+ * @param updatedVenueData Data for the new venue, including public IDs for images and floor plans.
+ */
+ async function createVenue(updatedVenueData: Omit<Venue, "id" | "created_at">) {
+  loading.value = true;
+  error.value = null;
+  Logger.info("Starting venue creation", { updatedVenueData });
 
-      console.log("Image URLs before assignment:", imageUrls);
-      console.log("Floor Plan URLs before assignment:", floorPlanUrls);
-
-  
-      // Combine the data with the URLs for images and floor plans
-      const updatedVenueData = {
-        ...venueData,
-        images: Array.isArray(imageUrls) ? imageUrls : [],
-        floor_plan_url: Array.isArray(floorPlanUrls) ? floorPlanUrls : [],
-        
-      };
-      
-      console.log("Updated Venue Data WITH URLS 2 CHECK:", updatedVenueData);
-      console.log(Array.isArray(updatedVenueData.images)); // Should be true
-      console.log(Array.isArray(updatedVenueData.floor_plan_url)); // Should be true
-
-
-      if (!imageUrls.every(url => typeof url === "string")) {
-        throw new Error("Images array contains invalid data");
-      }
-      if (!floorPlanUrls.every(url => typeof url === "string")) {
-        throw new Error("Floor plan URLs array contains invalid data");
-      }
-      
-  
-      // Insert the new venue into Supabase
-      const { data, error: insertError } = await supabase
-        .from("venues")
-        .insert(updatedVenueData)
-        .select()
-        .single();
-  
-      if (insertError) throw insertError;  
-      console.log("Inserted Venue Data:", data); // Log the data returned from Supabase
-      
-      Logger.info("Successfully created venue", { venueId: data.id });
-      await fetchVenues(null, true); // Refresh venues
-  
-    } catch (err) {
-      error.value = `Error creating venue: ${(err as Error).message}`;
-      Logger.error("Failed to create venue", err, { venueData });
-    } finally {
-      loading.value = false;
-    }
+  // Validate that the images and floor plan URL fields are non-empty
+  if (!updatedVenueData.images || !updatedVenueData.floor_plan_url || !updatedVenueData.images.length || !updatedVenueData.floor_plan_url.length) {
+      throw new Error("Images or floor plan URLs are missing or empty.");
   }
-  
-  
+  console.log("Payload for venue insertion:", updatedVenueData);
+
+  try {
+      const { data, error: insertError } = await supabase
+          .from('venues')
+          .insert([updatedVenueData]);
+
+      // If insertError occurs, throw an error
+      if (insertError) {
+          throw new Error(insertError.message);
+      }
+
+      // Log the full data object (not just data[0])
+      Logger.info("Successfully created venue", { venueData: data });
+
+      // Return the full data (array) if necessary
+      return data;
+  } catch (err) {
+      Logger.error("Error creating venue", err);
+      error.value = `Error creating venue: ${(err).message}`;
+      throw err;
+  } finally {
+      loading.value = false;
+  }
+}
+
+
 
   /**
    * Update an existing venue.

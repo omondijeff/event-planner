@@ -26,12 +26,12 @@ const validateCloudinaryEnv = (): void => {
 };
 
 /**
- * Uploads a file to Cloudinary and returns the secure URL of the uploaded file.
+ * Uploads a file to Cloudinary and returns the public_id of the uploaded file.
  *
  * @param {File} file - The file to be uploaded.
  * @param {string} folder - The folder in Cloudinary where the file will be stored.
  * @param {string} uploadPreset - The Cloudinary upload preset to use.
- * @returns {Promise<string>} - A promise that resolves to the secure URL of the uploaded file.
+ * @returns {Promise<string>} - A promise that resolves to the public_id of the uploaded file.
  * @throws {Error} - If the upload fails or Cloudinary returns an error.
  */
 export const uploadToCloudinary = async (
@@ -39,7 +39,8 @@ export const uploadToCloudinary = async (
   folder: string,
   uploadPreset: string
 ): Promise<string> => {
-  validateCloudinaryEnv(); // Ensure required env variables are present
+  // Ensure required environment variables are present
+  validateCloudinaryEnv();
 
   // Validate file
   if (!file) {
@@ -63,11 +64,15 @@ export const uploadToCloudinary = async (
       }
     );
 
+    if (!response.ok) {
+      throw new Error(`Cloudinary upload failed with status: ${response.status}`);
+    }
+
     const data = await response.json();
 
     // Handle successful upload
-    if (data.secure_url) {
-      return data.secure_url;
+    if (data.public_id) {
+      return data.public_id; // Return the public_id instead of the secure_url
     }
 
     // Handle Cloudinary-specific errors
@@ -78,6 +83,7 @@ export const uploadToCloudinary = async (
     throw new Error("Error uploading to Cloudinary. Please try again.");
   }
 };
+
 
 /**
  * Uploads multiple files to Cloudinary and returns an array of secure URLs.
@@ -110,3 +116,33 @@ export const uploadFiles = async (
     throw new Error("Failed to upload files to Cloudinary.");
   }
 };
+
+
+
+/**
+ * Constructs Cloudinary URLs for given public IDs.
+ * 
+ * @param publicIds - Array of Cloudinary public IDs.
+ * @returns Array of full Cloudinary URLs.
+ */
+export function constructCloudinaryUrls(publicIds: string[]): string[] {
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+  const baseUrl = `https://res.cloudinary.com/${cloudName}/image/upload/`;
+  return publicIds.map((id) => `${baseUrl}${id}`);
+}
+
+/**
+ * Transforms venue data by converting public IDs in images and floor_plan_url 
+ * fields to full Cloudinary URLs.
+ * 
+ * @param venues - Array of venue objects from the API response.
+ * @returns Transformed array of venue objects with updated image URLs.
+ */
+export function transformVenueData(venues: any[]): any[] {
+  return venues.map((venue) => ({
+    ...venue,
+    images: venue.images ? constructCloudinaryUrls(venue.images) : [],
+    floor_plan_url: venue.floor_plan_url ? constructCloudinaryUrls(venue.floor_plan_url) : [],
+  }));
+}
+
