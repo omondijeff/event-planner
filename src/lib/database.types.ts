@@ -15,7 +15,8 @@ export interface Profile {
 // Venues Table Structure
 export interface Venue {
   id: UUID;
-  name: string;
+  name?: string;
+  size?: number | null;
   description?: string | null;
   capacity?: number | null;
   location?: string | null;
@@ -23,6 +24,7 @@ export interface Venue {
   images?: string[] | null; // Array of image URLs
   price_range?: number | null; // Decimal stored as a number
   manager_id: UUID; // Foreign key referencing Profile.id
+  floor_plan_url: File | string; // URL of the floor plan
   created_at: Date;
 }
 

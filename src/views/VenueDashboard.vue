@@ -1,16 +1,16 @@
 <template>
   <div class="p-6">
-    <h1 class="text-2xl font-bold mb-4">Venue Management</h1>
+    <h1 class="mb-4 text-2xl font-bold">Venue Management</h1>
 
     <!-- Error Message -->
-    <div v-if="error" class="bg-red-100 text-red-700 p-4 mb-4 rounded">
+    <div v-if="error" class="p-4 mb-4 text-red-700 bg-red-100 rounded">
       {{ error }}
     </div>
 
     <!-- Add Venue Button -->
     <button
       v-if="canManageVenues"
-      class="bg-blue-500 text-white py-2 px-4 rounded mb-6"
+      class="px-4 py-2 mb-6 text-white bg-blue-500 rounded"
       @click="openVenueForm"
     >
       Add New Venue
@@ -26,7 +26,7 @@
     <div v-else-if="venues.length === 0 && canManageVenues" class="text-gray-500">
       No venues found. Add a new venue to get started.
     </div>
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2">
       <div
         v-for="venue in venues"
         :key="venue.id"
@@ -51,15 +51,15 @@
           <span v-else>No Sketch Uploaded</span>
         </p>
 
-        <div class="mt-4 flex space-x-2">
+        <div class="flex mt-4 space-x-2">
           <button
-            class="bg-green-500 text-white py-1 px-3 rounded"
+            class="px-3 py-1 text-white bg-green-500 rounded"
             @click="editVenue(venue)"
           >
             Edit
           </button>
           <button
-            class="bg-red-500 text-white py-1 px-3 rounded"
+            class="px-3 py-1 text-white bg-red-500 rounded"
             @click="deleteVenueHandler(venue.id)"
           >
             Delete

@@ -50,6 +50,14 @@ const routes = [
     component: () => import("@/views/VenueDashboard.vue"),
     meta: { requiresAuth: true, allowedRoles: ["venue_manager", "admin"] },
   },
+
+  {
+    path: "/venue-explorer",
+    name: "VenueExplorer",
+    component: () => import("@/views/VenueExplorer.vue"),
+    meta: { requiresAuth: true, allowedRoles: ["venue_manager", "vendor", "planner", "admin"] },
+  },
+  
 ];
 
 const router = createRouter({
