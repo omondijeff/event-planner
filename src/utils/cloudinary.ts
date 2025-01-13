@@ -141,8 +141,9 @@ export function constructCloudinaryUrls(publicIds: string[]): string[] {
 export function transformVenueData(venues: any[]): any[] {
   return venues.map((venue) => ({
     ...venue,
-    images: venue.images ? constructCloudinaryUrls(venue.images) : [],
-    floor_plan_url: venue.floor_plan_url ? constructCloudinaryUrls(venue.floor_plan_url) : [],
+    images: Array.isArray(venue.images) ? constructCloudinaryUrls(venue.images) : [],
+    floor_plan_url: Array.isArray(venue.floor_plan_url) ? constructCloudinaryUrls(venue.floor_plan_url) : [],
   }));
 }
+
 

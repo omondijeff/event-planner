@@ -40,14 +40,13 @@
         <p class="text-sm text-gray-500">Price Range: {{ venue.price_range || "N/A" }}</p>
         <p class="text-sm text-gray-500">
           Floor Plan:
-          <a
+          <button
             v-if="venue.floor_plan_url"
-            :href="venue.floor_plan_url"
             class="text-blue-500 underline"
-            target="_blank"
+            @click="openFloorPlanModal(generateFloorPlanUrl(venue.floor_plan_url))"
           >
             View Sketch
-          </a>
+          </button>
           <span v-else>No Sketch Uploaded</span>
         </p>
 
@@ -75,6 +74,27 @@
       @close="closeVenueFormAndRefresh"
       @saved="fetchVenuesOnSave"
     />
+
+     <!-- Floor Plan Modal -->
+<div
+  v-if="isFloorPlanModalOpen"
+  class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+>
+  <div class="relative p-4 bg-white rounded shadow-lg">
+    <button
+      class="absolute text-gray-600 top-2 right-2 hover:text-black"
+      @click="closeFloorPlanModal"
+    >
+      &times;
+    </button>
+    <img 
+      :src="currentFloorPlanUrl" 
+      alt="Floor Plan" 
+      class="max-w-full max-h-[80vh] object-contain" 
+    />
+  </div>
+</div>
+
   </div>
 </template>
 
@@ -84,6 +104,9 @@ import { useVenueStore } from "@/stores/venue";
 import { useAuthStore } from "@/stores/auth";
 import { hasAccess } from "@/utils/accessControl";
 import VenueForm from "@/components/venues/VenueForm.vue";
+
+import { constructCloudinaryUrls } from "@/utils/cloudinary";
+
 
 export default {
   components: { VenueForm },
@@ -95,6 +118,10 @@ export default {
     // Extract data and actions from stores
     const { venues, fetchVenues, deleteVenue, loading } = venueStore;
     const { user, isAuthenticated, profile } = authStore;
+
+    // Modal state and floor plan URL
+    const isFloorPlanModalOpen = ref(false);
+    const currentFloorPlanUrl = ref("");
 
     // Reactive state for error messages
     const error = ref<string | null>(null);
@@ -166,6 +193,35 @@ export default {
       }
     };
 
+
+     // Open modal with the selected floor plan
+    const openFloorPlanModal = (url: string) => {
+      currentFloorPlanUrl.value = url;
+      isFloorPlanModalOpen.value = true;
+    };
+
+    // Close modal
+    const closeFloorPlanModal = () => {
+      currentFloorPlanUrl.value = "";
+      isFloorPlanModalOpen.value = false;
+    };
+    
+    
+  // Generate Cloudinary URLs for floor plans with resizing
+  const generateFloorPlanUrl = (publicId: string | null): string => {
+    if (!publicId) return "";
+
+    // Cloudinary URL generation with resizing (keep aspect ratio)
+    const [url] = constructCloudinaryUrls([publicId]);
+    // Resize the image to 600px width and 400px height, maintain aspect ratio
+    const resizeUrl = `${url}?w_600,h_400,c_fit`;  
+
+    console.log(resizeUrl);
+    return resizeUrl;
+  };
+
+
+
     // Initialize data on component mount
     onMounted(fetchVenuesOnLoad);
 
@@ -186,11 +242,26 @@ export default {
       deleteVenueHandler,
       closeVenueFormAndRefresh,
       fetchVenuesOnSave,
+      generateFloorPlanUrl,
+      // New modal methods and states
+      isFloorPlanModalOpen,
+      currentFloorPlanUrl,
+      openFloorPlanModal,
+      closeFloorPlanModal,
     };
   },
 };
 </script>
 
 <style scoped>
-/* Add any custom styling here */
+/* Modal styles */
+.fixed {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.bg-opacity-50 {
+  backdrop-filter: blur(5px);
+}
 </style>
+
