@@ -119,17 +119,42 @@ export const uploadFiles = async (
 
 
 
-/**
- * Constructs Cloudinary URLs for given public IDs.
- * 
- * @param publicIds - Array of Cloudinary public IDs.
- * @returns Array of full Cloudinary URLs.
- */
-export function constructCloudinaryUrls(publicIds: string[]): string[] {
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-  const baseUrl = `https://res.cloudinary.com/${cloudName}/image/upload/`;
-  return publicIds.map((id) => `${baseUrl}${id}`);
-}
+// /**
+//  * Constructs Cloudinary URLs for given public IDs.
+//  * 
+//  * @param publicIds - Array of Cloudinary public IDs.
+//  * @returns Array of full Cloudinary URLs.
+//  */
+// export function constructCloudinaryUrls(publicIds: string[]): string[] {
+//   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+//   const baseUrl = `https://res.cloudinary.com/${cloudName}/image/upload/`;
+//   return publicIds.map((id) => `${baseUrl}${id}`);
+// }
+  /**
+   * Constructs Cloudinary URLs with specific transformations.
+   * 
+   * @param publicIds - Array of Cloudinary public IDs.
+   * @param options - Options for Cloudinary transformations (e.g., size).
+   * @returns Array of full Cloudinary URLs with transformations.
+   */
+  export function constructCloudinaryUrls(publicIds: string[], options: { size: 'thumbnail' | 'original' }): string[] {
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const baseUrl = `https://res.cloudinary.com/${cloudName}/image/upload`;
+
+    return publicIds.map((publicId) => {
+      let transformation = '';
+
+      // Apply thumbnail transformation (e.g., resize to 150x150)
+      if (options.size === 'thumbnail') {
+        transformation = 'w_150,h_150,c_fill,q_auto'; // Resize to 150x150, fill the space, and adjust quality
+      }
+
+      const url = `${baseUrl}/${transformation}/${publicId}.jpg`;
+      console.log('Generated Cloudinary URL:', url); // Log the URL to check its correctness
+      return url;
+    });
+  }
+
 
 /**
  * Transforms venue data by converting public IDs in images and floor_plan_url 
@@ -141,8 +166,9 @@ export function constructCloudinaryUrls(publicIds: string[]): string[] {
 export function transformVenueData(venues: any[]): any[] {
   return venues.map((venue) => ({
     ...venue,
-    images: venue.images ? constructCloudinaryUrls(venue.images) : [],
-    floor_plan_url: venue.floor_plan_url ? constructCloudinaryUrls(venue.floor_plan_url) : [],
+    images: Array.isArray(venue.images) ? constructCloudinaryUrls(venue.images) : [],
+    floor_plan_url: Array.isArray(venue.floor_plan_url) ? constructCloudinaryUrls(venue.floor_plan_url) : [],
   }));
 }
+
 

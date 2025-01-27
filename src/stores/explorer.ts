@@ -1,58 +1,68 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import { supabase } from "@/lib/supabase"; // Ensure correct path to your supabase config
-import { transformVenueData } from "@/utils/cloudinary"; // Import your utility function for transforming the data
-import { Logger } from "@/utils/logger"; // You may use your logger utility to log errors or info
+import { supabase } from "@/lib/supabase"; // Supabase config
+import { Logger } from "@/utils/logger"; // Logger utility
+import { constructCloudinaryUrls } from "@/utils/cloudinary"; // Import your utility function for transforming the data
 
-// Define the store for managing venue data
 export const useExplorerStore = defineStore("explorer", () => {
-  // State for storing venue data
-  const venues = ref<any[]>([]);
+  const venues = ref<any[]>([]); // Store raw venue data
   const loading = ref<boolean>(false);
   const error = ref<string | null>(null);
+  const totalVenues = ref<number>(0); // Track total number of venues for pagination
+  const currentPage = ref<number>(1); // Track the current page
+  const venuesPerPage = ref<number>(10); // Number of venues to fetch per page
 
-  // Computed Property to check if there are venues
-  const hasVenues = computed(() => venues.value.length > 0);
+  const venueThumbnails = computed(() => {
+    return venues.value.map((venue) => {
+      console.log('Venue images:', venue.images); // Log images to verify public IDs
+      return {
+        ...venue,
+        images: Array.isArray(venue.images)
+          ? constructCloudinaryUrls(venue.images, { size: 'thumbnail' })
+          : [],
+      };
+    });
+  });
+  
 
-  // Method to fetch venue data and transform it
-  async function fetchAllVenues() {
+  // Fetch paginated venues based on current page
+  async function fetchVenuesPage(page: number, perPage: number) {
+    const offset = (page - 1) * perPage;
+
     loading.value = true;
     error.value = null;
-    console.log("Fetching venues...");
 
     try {
-      // Fetch all venues from Supabase without filtering by managerId
-      const { data, error: fetchError } = await supabase.from("venues").select("*");
+      const { data, count, error: fetchError } = await supabase
+        .from("venues")
+        .select("*", { count: "exact" })
+        .range(offset, offset + perPage - 1);
 
-      if (fetchError) {
-        throw fetchError;
-      }
+      if (fetchError) throw fetchError;
 
-      console.log("Data fetched from Supabase:", data);
+      // Update venues list by appending new data
+      venues.value = page === 1 ? data || [] : [...venues.value, ...(data || [])];
+      totalVenues.value = count || 0; // Update total count of venues
+      currentPage.value = page; // Update the current page
 
-      // If data exists, transform it using the utility function
-      venues.value = transformVenueData(data || []);
-      console.log("Transformed venues:", venues.value);
-
-      Logger.info("Venues fetched and transformed", { count: venues.value.length });
-
+      Logger.info("Fetched venues page", { page, count: venues.value.length });
     } catch (err) {
       error.value = `Error fetching venues: ${(err as Error).message}`;
-      Logger.error("Error fetching venues", err);
-      console.error("Error fetching venues:", err);
+      Logger.error("Error fetching venues page", err);
     } finally {
       loading.value = false;
-      console.log("Fetching complete, loading set to false.");
     }
   }
 
-
-  // Return the reactive state, computed properties, and actions for use in components
+  // Return the store's state and methods
   return {
     venues,
+    venueThumbnails,
     loading,
     error,
-    hasVenues,
-    fetchAllVenues,
+    totalVenues,
+    currentPage,
+    venuesPerPage,
+    fetchVenuesPage,
   };
 });
