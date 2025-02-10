@@ -1,44 +1,62 @@
 <template>
-  <div class="container py-8 mx-auto">
-    <div class="space-y-6">
-      <!-- Filters Section -->
+  <div class="container mx-auto py-8 px-4">
+    <!-- Filters Section -->
+    <div class="bg-white p-6 rounded-lg shadow-md flex flex-col md:flex-row md:items-center gap-4">
+      <!-- Search Input -->
       <input
         v-model="searchQuery"
         type="text"
-        placeholder="Search venues by name or location"
-        class="w-full px-4 py-2 border rounded-md md:w-1/3"
+        placeholder="🔍 Search venues by name or location..."
+        class="w-full md:w-1/3 px-4 py-2 border rounded-md focus:ring focus:ring-blue-300 focus:border-blue-500"
       />
-      <select
-        v-model="selectedCapacity"
-        class="w-full px-4 py-2 border rounded-md md:w-1/4"
-      >
-        <option value="">All Capacities</option>
-        <option v-for="cap in capacities" :key="cap" :value="cap">{{ cap }} Capacity</option>
-      </select>
-      <select
-        v-model="selectedLocation"
-        class="w-full px-4 py-2 border rounded-md md:w-1/4"
-      >
-        <option value="">All Locations</option>
-        <option v-for="loc in locations" :key="loc" :value="loc">{{ loc }} Location</option>
-      </select>
+
+      <!-- Capacity Dropdown with Search -->
+      <div class="relative w-full md:w-1/4">
+        <input
+          v-model="selectedCapacity"
+          list="capacity-options"
+          type="text"
+          placeholder="🔢 Select or enter capacity"
+          class="w-full px-4 py-2 border rounded-md focus:ring focus:ring-blue-300 focus:border-blue-500"
+        />
+        <datalist id="capacity-options">
+          <option v-for="cap in uniqueCapacities" :key="cap" :value="cap">{{ cap }} Capacity</option>
+        </datalist>
+      </div>
+
+      <!-- Location Dropdown with Search -->
+      <div class="relative w-full md:w-1/4">
+        <input
+          v-model="selectedLocation"
+          list="location-options"
+          type="text"
+          placeholder="📍 Select or enter location"
+          class="w-full px-4 py-2 border rounded-md focus:ring focus:ring-blue-300 focus:border-blue-500"
+        />
+        <datalist id="location-options">
+          <option v-for="loc in uniqueLocations" :key="loc" :value="loc">{{ loc }} Location</option>
+        </datalist>
+      </div>
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading" class="text-center">Loading venues...</div>
+    <div v-if="loading && currentPage === 1" class="text-center py-4 text-blue-500">Loading venues...</div>
 
     <!-- Error State -->
-    <div v-if="error" class="text-red-500">{{ error }}</div>
+    <div v-if="error" class="text-red-500 text-center py-4">{{ error }}</div>
 
-      <!-- Venues Section -->
-      <div v-if="!loading && !error" class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <!-- Venues Section -->
+    <div v-if="!loading && !error" class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mt-6">
       <div
         v-for="venue in filteredVenues"
         :key="venue.id"
-        class="p-6 transition duration-300 ease-in-out transform border rounded-lg shadow-lg hover:shadow-xl hover:scale-105"
+        @click="openModal(venue)"
+        class="p-6 transition duration-300 ease-in-out transform border rounded-lg shadow-lg hover:shadow-xl hover:scale-105 cursor-pointer"
       >
         <div class="space-y-4">
-          <h2 class="text-xl font-semibold text-gray-800 transition duration-200 hover:text-blue-600">{{ venue.name }}</h2>
+          <h2 class="text-xl font-semibold text-gray-800 transition duration-200 hover:text-blue-600">
+            {{ venue.name }}
+          </h2>
           <p class="text-sm text-gray-600">{{ venue.description }}</p>
           <div class="flex justify-between text-sm text-gray-500">
             <p><strong>Capacity:</strong> {{ venue.capacity }}</p>
@@ -48,7 +66,7 @@
           <!-- Images Section (Thumbnails) -->
           <div class="space-y-2">
             <img
-            v-for="url in venue.images" 
+              v-for="url in venue.images"
               :src="url"
               :key="url"
               alt="Venue Image"
@@ -59,29 +77,30 @@
       </div>
     </div>
 
-    <!-- Pagination Section -->
-    <div v-if="!loading && !error && venues.length < totalVenues" class="flex justify-center py-4 space-x-4">
-      <button
-        @click="loadMoreVenues"
-        class="px-6 py-2 text-white transition duration-300 bg-blue-500 rounded-full shadow-md hover:bg-blue-600"
-      >
-        Load More
-      </button>
-    </div>
+     <!-- Venue Partials Modal -->
+     <VenuePartials v-if="selectedVenue" :venue="selectedVenue" @close="closeModal" />
+    
+
+    <!-- Infinite Scroll Sentinel -->
+    <div id="scroll-sentinel" class="h-10"></div>
+
+    <!-- Loading more indicator -->
+    <div v-if="loading && currentPage > 1" class="text-center py-4 text-blue-500">Loading more venues...</div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted } from 'vue';
-import { useExplorerStore } from '@/stores/explorer'; // Import your store
-import { useAuthStore } from '@/stores/auth'; // Import your auth store
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { useExplorerStore } from '@/stores/explorer';
+import VenuePartials from '@/components/VenuePartials.vue';
 
 const venueStore = useExplorerStore();
-const authStore = useAuthStore();
 
 const searchQuery = ref('');
 const selectedCapacity = ref<string | null>(null);
 const selectedLocation = ref<string | null>(null);
+  const selectedVenue = ref<any | null>(null);
+
 const venues = computed(() => venueStore.venues);
 const loading = computed(() => venueStore.loading);
 const error = computed(() => venueStore.error);
@@ -90,7 +109,15 @@ const currentPage = computed(() => venueStore.currentPage);
 const venuesPerPage = computed(() => venueStore.venuesPerPage);
 const totalVenues = computed(() => venueStore.totalVenues);
 
-// Filters & Search Logic
+const observer = ref<IntersectionObserver | null>(null);
+
+
+// Get unique capacities & locations for dropdowns
+const uniqueCapacities = computed(() => [...new Set(venues.value.map(venue => venue.capacity))].sort((a, b) => a - b));
+const uniqueLocations = computed(() => [...new Set(venues.value.map(venue => venue.location))].sort());
+
+
+// Computed property for filtering venues
 const filteredVenues = computed(() => {
   const venueList = venues.value || [];
 
@@ -104,15 +131,97 @@ const filteredVenues = computed(() => {
   });
 });
 
-// Load Venues on Initial Load
-onMounted(() => {
-  venueStore.fetchVenuesPage(1, venuesPerPage.value); // Fetch the first page of venues
+// Fetch first page on mount
+onMounted(async () => {
+  // Always start from the first page on a full refresh
+  if (!performance.navigation.type || performance.navigation.type === 1) {
+    sessionStorage.removeItem("lastPage");
+    sessionStorage.removeItem("scrollPosition");
+  }
+
+  // Always start at page 1 on refresh
+  await venueStore.fetchVenuesPage(1, venuesPerPage.value);
+
+  // Restore scroll position only if it was saved (e.g., after navigation, but not a full refresh)
+  nextTick(() => {
+    const savedScroll = sessionStorage.getItem("scrollPosition");
+    if (savedScroll) {
+      window.scrollTo(0, parseInt(savedScroll, 10));
+    }
+  });
+
+  observeScroll();
 });
 
-// Load More Venues for Pagination
-const loadMoreVenues = async () => {
-  if (currentPage.value * venuesPerPage.value < totalVenues.value) {
-    await venueStore.fetchVenuesPage(currentPage.value + 1, venuesPerPage.value);
+
+onUnmounted(() => {
+  if (performance.navigation.type !== 1) {
+    sessionStorage.setItem("scrollPosition", window.scrollY.toString());
+    sessionStorage.setItem("lastPage", currentPage.value.toString());
   }
+
+  observer.value?.disconnect();
+});
+
+
+
+// Load More Venues when sentinel is visible
+const loadMoreVenues = async () => {
+  if (currentPage.value * venuesPerPage.value >= totalVenues.value || loading.value) {
+    return;
+  }
+
+  await venueStore.fetchVenuesPage(currentPage.value + 1, venuesPerPage.value);
 };
+
+// Setup IntersectionObserver
+const observeScroll = () => {
+  nextTick(() => {
+    const sentinel = document.getElementById("scroll-sentinel");
+    if (!sentinel) {
+      console.warn("Sentinel not found!");
+      return;
+    }
+
+    // Disconnect any existing observer before creating a new one
+    if (observer.value) {
+      observer.value.disconnect();
+    }
+
+    observer.value = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          loadMoreVenues();
+        }
+      },
+      { rootMargin: "300px" } // Adjust for earlier loading
+    );
+
+    observer.value.observe(sentinel);
+  });
+};
+
+const openModal = (venue: any) => {
+  selectedVenue.value = venue;
+};
+
+const closeModal = () => {
+  selectedVenue.value = null;
+};
+
 </script>
+
+
+<style scoped>
+/* Custom styles for better UI */
+input, select {
+  transition: all 0.3s ease-in-out;
+}
+input:focus, select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+}
+.container {
+  max-width: 4000px;
+}
+</style>
