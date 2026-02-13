@@ -172,3 +172,18 @@ export function transformVenueData(venues: any[]): any[] {
 }
 
 
+/**
+ * Constructs a Cloudinary URL for a given public ID.
+ *
+ * @param {string} publicId - The Cloudinary public ID of the image.
+ * @returns {string} - The fully qualified Cloudinary URL.
+ */
+export const constructCloudinaryUrl = (publicId: string): string => {
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+  if (!cloudName) {
+    throw new Error("Cloudinary cloud name is not defined in environment variables.");
+  }
+  return `https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`;
+};
+
+
